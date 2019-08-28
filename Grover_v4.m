@@ -1,14 +1,19 @@
-% version 3 of the full oracle case, with ancilla energy {0, 1, 2, 3}
-% outcome is 0.500274
+% version 3 of the full oracle case, with ancilla energy {-3, -2, -1, 0, 1, 2, 3}
+% outcome is 0.8125
 d1 = 8;
 d2 = 8;
 n = d1 * d2;
+x_num = 4;
+e_num = 7;
 
 Omega0 = Omega_generator(0);
 Omega1 = Omega_generator(1);
 Omega2 = Omega_generator(2);
 Omega3 = Omega_generator(3);
 
+Projectorm3 = Projector_generator(-3);
+Projectorm2 = Projector_generator(-2);
+Projectorm1 = Projector_generator(-1);
 Projector0 = Projector_generator(0);
 Projector1 = Projector_generator(1);
 Projector2 = Projector_generator(2);
@@ -17,50 +22,46 @@ Projector3 = Projector_generator(3);
 cvx_clear
 cvx_begin sdp
 cvx_solver sedumi
-    variable T00(n, n) complex semidefinite
-    variable T01(n, n) complex semidefinite
-    variable T02(n, n) complex semidefinite
-    variable T03(n, n) complex semidefinite
-    variable T10(n, n) complex semidefinite
-    variable T11(n, n) complex semidefinite
-    variable T12(n, n) complex semidefinite
-    variable T13(n, n) complex semidefinite
-    variable T20(n, n) complex semidefinite
-    variable T21(n, n) complex semidefinite
-    variable T22(n, n) complex semidefinite
-    variable T23(n, n) complex semidefinite
-    variable T30(n, n) complex semidefinite
-    variable T31(n, n) complex semidefinite
-    variable T32(n, n) complex semidefinite
-    variable T33(n, n) complex semidefinite
-    
-    S0 = T00 + T01 + T02 + T03;
-    S1 = T10 + T11 + T12 + T13;
-    S2 = T20 + T21 + T22 + T23;
-    S3 = T30 + T31 + T32 + T33;
+    variable T(x_num, e_num, n, n)
+
+    S = zeros(n, n);
+    for i = 1 : 4
+        for j = 1 : 7
+            S = S + squeeze(T(i, j, :, :));
+        end
+    end
+
+    S0 = zeros(n, n);
+    S1 = zeros(n, n);
+    S2 = zeros(n, n);
+    S3 = zeros(n, n);
+    for i = 1 : 7
+        S0 = S0 + squeeze(T(1, i, :, :));
+        S1 = S1 + squeeze(T(2, i, :, :));
+        S2 = S2 + squeeze(T(3, i, :, :));
+        S3 = S3 + squeeze(T(4, i, :, :));
+    end
     maximize(trace(S0 * Omega0) + trace(S1 * Omega1) + trace(S2 * Omega2) + trace(S3 * Omega3))
     
     subject to
         % Comb condition
-        trace(T00+T01+T02+T03+T10+T11+T12+T13+T20+T21+T22+T23+T30+T31+T32+T33) == d2;
-        T00+T01+T02+T03+T10+T11+T12+T13+T20+T21+T22+T23+T30+T31+T32+T33 == kron(PartialTrace(T00+T01+T02+T03+T10+T11+T12+T13+T20+T21+T22+T23+T30+T31+T32+T33, 2, [d1 d2]), eye(d2) / d2);
+        trace(S) == d2;
+        S == kron(PartialTrace(S, 2, [d1 d2]), eye(d2)/d2);
+        for i = 1 : 4
+            for j = 1 : 7
+                squeeze(T(i, j, :, :)) == hermitian_semidefinite(n);
+            end
+        end
         % Energy preserving
-        Projector0 * T00 * Projector0 == T00;
-        Projector0 * T10 * Projector0 == T10;
-        Projector0 * T20 * Projector0 == T20;
-        Projector0 * T30 * Projector0 == T30;
-        Projector1 * T01 * Projector1 == T01;
-        Projector1 * T11 * Projector1 == T11;
-        Projector1 * T21 * Projector1 == T21;
-        Projector1 * T31 * Projector1 == T31;
-        Projector2 * T02 * Projector2 == T02;
-        Projector2 * T12 * Projector2 == T12;
-        Projector2 * T22 * Projector2 == T22;
-        Projector2 * T32 * Projector2 == T32;
-        Projector3 * T03 * Projector3 == T03;
-        Projector3 * T13 * Projector3 == T13;
-        Projector3 * T23 * Projector3 == T23;
-        Projector3 * T33 * Projector3 == T33;
+        for i = 1 : 4
+            Projectorm3 * squeeze(T(i, 1, :, :)) * Projectorm3 == squeeze(T(i, 1, :, :));
+            Projectorm2 * squeeze(T(i, 2, :, :)) * Projectorm2 == squeeze(T(i, 2, :, :));
+            Projectorm1 * squeeze(T(i, 3, :, :)) * Projectorm1 == squeeze(T(i, 3, :, :));
+            Projector0 * squeeze(T(i, 4, :, :)) * Projector0 == squeeze(T(i, 4, :, :));
+            Projector1 * squeeze(T(i, 5, :, :)) * Projector1 == squeeze(T(i, 5, :, :));
+            Projector2 * squeeze(T(i, 6, :, :)) * Projector2 == squeeze(T(i, 6, :, :));
+            Projector3 * squeeze(T(i, 7, :, :)) * Projector3 == squeeze(T(i, 7, :, :));
+        end
 cvx_end
 
 function Omega = Omega_generator(x)
